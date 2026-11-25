@@ -158,6 +158,7 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    campuses: Campus;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -168,6 +169,7 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    campuses: CampusesSelect<false> | CampusesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -216,6 +218,13 @@ export interface UserAuthOperations {
  */
 export interface User {
   id: number;
+  roles?: 'superadmin'[] | null;
+  campuses?:
+    | {
+        campus: number | Campus;
+        id?: string | null;
+      }[]
+    | null;
   createdBy?: {
     relationTo: 'users';
     value: number | User;
@@ -260,10 +269,34 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "campuses".
+ */
+export interface Campus {
+  id: number;
+  name: string;
+  slug: string;
+  /**
+   * Domain or subdomain for this campus website, e.g. school1.campusly.devslix.com
+   */
+  domain?: string | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media".
  */
 export interface Media {
   id: number;
+  campus?: (number | null) | Campus;
   alt: string;
   prefix?: string | null;
   _objectKey?: string | null;
@@ -329,6 +362,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'campuses';
+        value: number | Campus;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -399,6 +436,13 @@ export interface PayloadLlmInstruction {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  roles?: T;
+  campuses?:
+    | T
+    | {
+        campus?: T;
+        id?: T;
+      };
   createdBy?: T;
   updatedBy?: T;
   updatedAt?: T;
@@ -430,6 +474,7 @@ export interface UsersSelect<T extends boolean = true> {
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
+  campus?: T;
   alt?: T;
   prefix?: T;
   _objectKey?: T;
@@ -459,6 +504,19 @@ export interface MediaSelect<T extends boolean = true> {
         _objectKey?: T;
         _stored?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "campuses_select".
+ */
+export interface CampusesSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  domain?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -543,7 +601,7 @@ export interface CollectionsWidget {
 export interface CollectionQueryWidget {
   data?: {
     title?: string | null;
-    relatedCollection: 'users' | 'media';
+    relatedCollection: 'users' | 'media' | 'campuses';
     where?:
       | {
           [k: string]: unknown;
@@ -565,7 +623,7 @@ export interface CollectionQueryWidget {
  */
 export interface ActivityWidget {
   data?: {
-    excludedCollections?: ('users' | 'media')[] | null;
+    excludedCollections?: ('users' | 'media' | 'campuses')[] | null;
   };
   width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }

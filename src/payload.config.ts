@@ -7,9 +7,13 @@ import { fileURLToPath } from 'url'
 import { CloudflareContext, getCloudflareContext } from '@opennextjs/cloudflare'
 import { GetPlatformProxyOptions } from 'wrangler'
 import { r2Storage } from '@payloadcms/storage-r2'
+import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Campuses } from './collections/Campuses'
+import { isSuperAdmin } from './access/isSuperAdmin'
+import type { Config } from './payload-types'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -53,7 +57,7 @@ export default buildConfig({
   auth: {
     passwordHashIterations: 100000
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Campuses],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
@@ -67,6 +71,33 @@ export default buildConfig({
     r2Storage({
       bucket: cloudflare.env.R2,
       collections: { media: true },
+    }),
+  ],
+  plugins: [
+    // Campus = tenant. See https://payloadcms.com/docs/beta/plugins/multi-tenant
+    multiTenantPlugin({
+      tenantsSlug: 'campuses',
+      tenantField: {
+        name: 'campus',
+      },
+      tenantsArrayField: {
+        includeDefaultField: true,
+        arrayFieldName: 'campuses',
+        arrayTenantFieldName: 'campus',
+      },
+      collections: {
+        media: {},
+      },
+      userHasAccessToAllTenants: (user) => isSuperAdmin(user),
+      i18n: {
+        translations: {
+          en: {
+            'nav-tenantSelector-label': 'Filter by Campus',
+            'field-assignedTenant-label': 'Assigned Campus',
+            'assign-tenant-button-label': 'Assign Campus',
+          },
+        },
+      },
     }),
   ],
 })
