@@ -19,7 +19,11 @@ export const Users: CollectionConfig = {
       // The very first user (created from the admin "Create first user" screen) becomes superadmin
       async ({ data, operation, req }) => {
         if (operation === 'create') {
-          const { totalDocs } = await req.payload.count({ collection: 'users', req })
+          const { totalDocs } = await req.payload.count({
+            collection: 'users',
+            overrideAccess: true,
+            req,
+          })
           if (totalDocs === 0) {
             data.roles = ['superadmin']
           }
