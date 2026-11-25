@@ -1,0 +1,24 @@
+// Used ONLY by CI to run Payload migrations against the preview resources.
+// Worker Previews themselves read the `previews` block in wrangler.jsonc —
+// keep the D1 / R2 values below identical to that block.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "campusly",
+  "compatibility_date": "2025-08-15",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "d1_databases": [
+    {
+      "binding": "D1",
+      "database_id": "6eaec123-6d33-4f18-b6dc-713ed16342fa",
+      "database_name": "campusly-preview",
+      "remote": true,
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "campusly-preview",
+    },
+  ],
+}

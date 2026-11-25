@@ -1,0 +1,47 @@
+name: Deploy Production
+
+# Runs whenever something lands on main (e.g. a merged PR).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://campusly.devslix.com
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      # Production D1 only (campusly) — uses the top-level bindings in wrangler.jsonc
+      - name: Run production migrations
+        run: |
+          pnpm exec cross-env NODE_ENV=production PAYLOAD_SECRET=ignore payload migrate
+          pnpm exec wrangler d1 execute D1 --command 'PRAGMA optimize' --remote
+
+      - name: Build
+        run: pnpm exec opennextjs-cloudflare build
+        env:
+          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET }}
+
+      - name: Deploy to production
+        run: |
+          jq -n --arg s "$PAYLOAD_SECRET" '{PAYLOAD_SECRET: $s}' > "$RUNNER_TEMP/secrets.json"
+          pnpm exec opennextjs-cloudflare deploy -- --secrets-file "$RUNNER_TEMP/secrets.json"
+          rm -f "$RUNNER_TEMP/secrets.json"
+        env:
+          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET }}

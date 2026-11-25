@@ -1,0 +1,78 @@
+name: Preview
+
+# Every branch except main gets its own Worker Preview:
+#   https://<preview-name>.campusly.devslix.com
+# The Preview is deleted when the branch is deleted.
+on:
+  push:
+    branches-ignore: [main]
+  delete:
+
+permissions:
+  contents: read
+
+env:
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+jobs:
+  preview:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: preview-${{ github.ref_name }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Preview name from branch
+        id: name
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          # feature/Login_page -> feature-login-page (DNS-safe, max 40 chars)
+          name="$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # Preview D1 only (campusly-preview) — via wrangler.preview.jsonc
+      - name: Run preview migrations
+        run: |
+          pnpm exec cross-env NODE_ENV=production PAYLOAD_SECRET=ignore PAYLOAD_WRANGLER_CONFIG=wrangler.preview.jsonc payload migrate
+          pnpm exec wrangler d1 execute D1 --command 'PRAGMA optimize' --remote --config wrangler.preview.jsonc
+
+      - name: Build
+        run: pnpm exec opennextjs-cloudflare build
+        env:
+          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET_PREVIEW }}
+
+      - name: Deploy Preview
+        id: deploy
+        env:
+          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET_PREVIEW }}
+          PREVIEW_NAME: ${{ steps.name.outputs.name }}
+        run: |
+          set -o pipefail
+          jq -n --arg s "$PAYLOAD_SECRET" '{PAYLOAD_SECRET: $s}' > "$RUNNER_TEMP/secrets.json"
+          output="$(pnpm exec wrangler preview --name "$PREVIEW_NAME" --json --secrets-file "$RUNNER_TEMP/secrets.json")"
+          rm -f "$RUNNER_TEMP/secrets.json"
+          printf '%s\n' "$output"
+          echo "### Preview: https://$PREVIEW_NAME.campusly.devslix.com" >> "$GITHUB_STEP_SUMMARY"
+          urls="$(printf '%s' "$output" | jq -r '.preview.urls[]?' 2>/dev/null || true)"
+          [ -n "$urls" ] && printf -- '- %s\n' $urls >> "$GITHUB_STEP_SUMMARY" || true
+
+  cleanup:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch' && github.event.ref != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+
+      - name: Delete Preview
+        env:
+          BRANCH: ${{ github.event.ref }}
+        run: |
+          name="$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          pnpm exec wrangler preview delete --name "$name" --skip-confirmation

@@ -1,0 +1,28 @@
+name: Setup
+description: Setup Node + pnpm and install dependencies only when package.json changed
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+
+    # node_modules is cached by the hash of the dependency manifests.
+    # If package.json (or the pnpm config) did not change, the cache is restored
+    # and `pnpm install` is skipped entirely.
+    - name: Restore node_modules cache
+      id: deps-cache
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: deps-${{ runner.os }}-node24-${{ hashFiles('package.json', 'pnpm-workspace.yaml', '.npmrc') }}
+
+    - name: Install dependencies
+      if: steps.deps-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm install --no-frozen-lockfile
