@@ -53,6 +53,11 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    meta:{
+      titleSuffix: " - Campusly",
+      title: "Campusly",
+      description: "School Management System"
+    },
   },
   auth: {
     passwordHashIterations: 100000
