@@ -97,7 +97,7 @@ export default buildConfig({
       i18n: {
         translations: {
           en: {
-            'nav-tenantSelector-label': 'Filter by Campus',
+            'nav-tenantSelector-label': 'Campuses',
             'field-assignedTenant-label': 'Assigned Campus',
             'assign-tenant-button-label': 'Assign Campus',
           },
